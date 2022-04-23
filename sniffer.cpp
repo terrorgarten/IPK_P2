@@ -2,11 +2,13 @@
 //#include <cstddef>
 #include <cstddef>
 #include <cstdio>
+#include <exception>
 #include <getopt.h>
 #include <iostream> 	            //parse args
 #include <ostream>
 #include <pcap.h>
 #include <pcap/pcap.h>
+#include <stdexcept>
 #include <string>
 #include <cstring>
 #include <bitset> 	            //printing
@@ -26,13 +28,20 @@
 //std namespace
 using namespace std;
 
+//global for correct access from cleanup()
+pcap_t* dev_descriptor;
+
 void print_interfaces();
 
 void print_help(char* progname);
 
-string load_filtr(int udp, int tcp, int port, int arp, int icmp);
+string load_filter(int udp, int tcp, int port, int arp, int icmp);
 
 pcap_t* set_pcap_handle(string dev, string filter);
+
+void handle_packet(u_char* args, const struct pcap_pkthdr* header, const u_char *packet);
+
+void clean_up(int s);
 
 int main(int argc, char* argv[])
 {
@@ -119,7 +128,21 @@ int main(int argc, char* argv[])
                 break;
             
             case 'n':
-                packet_num = stoi(optarg);
+                try
+                {
+                    packet_num = stoi(optarg);
+                }
+                catch(...)
+                {
+                    cerr << "Invalid parameter for -n. Use only positive numbers" << endl;
+                    exit(ERROR);
+                    //cerr << e.what() <<endl;
+                }
+                if(packet_num <= 0)
+                {   
+                    cerr << "Invalid parameter for -n. Use only positive numbers" << endl;
+                    exit(ERROR);
+                }
                 cout << "Packet count set " << packet_num << endl;
                 break;
             case 'h':
@@ -135,30 +158,73 @@ int main(int argc, char* argv[])
 
     
     
-    //check if iface was set correctly
+    //check if iface was set correctly 
+    //TODO dead code?
     if(interface.empty())
     {
         cerr << "ERROR: No interface [-i|--interface] was specified. Use -h for help" << endl;
     }
 
-
-    string filter = "";
+    //loads a filter string depending on flags
+    string filter = load_filter(udp_flag, tcp_flag, port, arp_flag, icmp_flag);
     cout << port <<endl;
-    filter.append(load_filtr(udp_flag, tcp_flag, port, arp_flag, icmp_flag));
     cout << "FILTER: " << filter;
     
+    //trap sigint for correct freeing of memmory
+    signal(SIGINT, clean_up);
 
-
-    pcap_t* dev_descriptor = set_pcap_handle(interface, filter);
+    //sets up the device descriptor
+    dev_descriptor = set_pcap_handle(interface, filter);
     
-    
+    cout << "preloopoid"<<packet_num << endl;
 
+    int datalink_type;
+    if((datalink_type = pcap_datalink(dev_descriptor) < 0))
+    {
+        cerr << "ERROR: Could not determine datalink layer type. (pcap_datalink)";
+        exit(ERROR);
+    }
+
+
+    //check for the type of datalink and accept only ethernet
+    if(datalink_type != DLT_EN10MB)
+    {
+        cerr << "Invalid datalink type - currently only Ethernet (EN10MB) is supported. " << endl;
+        exit(ERROR);
+    }
+
+    //runs main loop for catching packets
+    char errbuf[PCAP_ERRBUF_SIZE];
+    if(pcap_loop(dev_descriptor, packet_num, handle_packet, NULL) < 0)
+    {
+        cerr << "Error during packet read loop, pcap: " << errbuf << endl;
+        exit(ERROR);
+    };
+
+    pcap_close(dev_descriptor);
     cout << "DONE"<<endl;
     return 0;
 
-    
-
 }
+
+
+
+
+
+
+void handle_packet(u_char* args, const struct pcap_pkthdr* header, const u_char *packet)
+{
+    cout << "PACKETOZA" <<endl; 
+}
+
+void clean_up(int s)
+{
+    pcap_close(dev_descriptor);
+    cerr << endl << "Sniffer terminated -- resources freed." << endl;
+    exit(0);
+}
+
+
 
 /**
  * @brief generates formated pcap filter
@@ -170,7 +236,7 @@ int main(int argc, char* argv[])
  * @param icmp icmp flag
  * @return string formated pcap filter string
  */
-string load_filtr(int udp, int tcp, int port, int arp, int icmp)
+string load_filter(int udp, int tcp, int port, int arp, int icmp)
 {
     // //check conflict void print_help()on args
     // // if(udp && tcp)
@@ -327,6 +393,8 @@ void print_interfaces()
         cout << tmp->name <<endl;
         tmp = tmp->next;
     }
+    //free devices
+    pcap_freealldevs(aviable_interfaces);
     exit(SUCCES);
 }
 
