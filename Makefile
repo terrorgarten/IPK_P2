@@ -1,6 +1,6 @@
 CC = g++
 
-CFLAGS  = -Wall
+CFLAGS  = -Wall -lpcap
 
 # The build target 
 TARGET = sniffer
