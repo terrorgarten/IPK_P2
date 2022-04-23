@@ -1,6 +1,7 @@
 //#include <bits/getopt_core.h>
 //#include <cstddef>
-#include <cstdlib>
+#include <cstddef>
+#include <getopt.h>
 #include <iostream> 	            //parse args
 #include <ostream>
 #include <string>
@@ -21,6 +22,8 @@
 //std namespace
 using namespace std;
 
+/*Global flags for options*/
+
 
 
 // struct option longopts[] = {
@@ -33,44 +36,69 @@ using namespace std;
 
 void print_interfaces();
 
-void print_help();
+void print_help(char* progname);
+
 
 
 int main(int argc, char* argv[])
 {
-    //interface specificator
-    char* interface;
-    //port specificator, -1 when all
-    int port = -1;
     //flag for tcp only mode
     int tcp_flag = 0;
     //flag for udp only mode
     int udp_flag = 0;
+    //arp only mode
+    int arp_flag = 0;
+    //icmp only mode 
+    int icmp_flag = 0;
+
+    //options
+    static struct option long_opt[] = 
+    {
+        //setters
+        {"interface", optional_argument, NULL, 'i'},
+        {"num", required_argument, NULL, 'n'},
+        //flags
+        {"tcp", no_argument, &tcp_flag, 1},
+        {"udp", no_argument, &udp_flag, 1},
+        {"arp", no_argument, &arp_flag, 1},
+        {"icmp", no_argument, &icmp_flag, 1},
+        {0, 0, 0, 0}    
+    };
+
+    static char short_opt[] = "i::p:tun:h";
+    //interface specificator
+    string interface = "";
+    //port specificator, -1 when all
+    int port = -1;
     //packet number specifier, 1 when default
     int packet_num = 1;
-
     //cmd line argument
     int cla;
+    //index
+    extern int optind;
     //cla loading loop
-    while((cla = getopt(argc, argv, "i::p:tun")) != -1)
+    while((cla = getopt_long(argc, argv, short_opt, long_opt, &optind)) != -1)
     {
-        cout << "caught switch" << endl;
+        cout << "Caught arg " << optind  << endl;
+        char* tmp_optarg = NULL;
         switch (cla) 
         {
+            //flag set
+            case 0:
+                break;
             case 'i':
-                if(optarg == NULL)
+                if(!optarg && argv[optind] != NULL && '-' != argv[optind][0])
+                {   
+                    tmp_optarg = argv[optind];                   
+                }
+                if(tmp_optarg){
+                    cout << "OK: " << tmp_optarg << endl;
+                }
+                else 
                 {   
                     // -i without param -> print interfaces
                     cout << "-i empty"<<endl;
                     print_interfaces();
-                }
-                else 
-                {   
-                    cout << "-i set";
-                    //copy the interface callname into the specifier var
-                    strcpy(interface, optarg);
-                    //printf("interface: %s", interface);
-                    cout << "Interface: " << interface << endl;
                 }
                 break;
 
@@ -97,18 +125,23 @@ int main(int argc, char* argv[])
                 packet_num = stoi(optarg);
                 cout << "Packet count set " << packet_num << endl;
                 break;
-        }
-         
-    
+            case 'h':
+                print_help(argv[0]);
+                break;
+            case '?':
+            default:
+                cout << "Uknown option. use -h for help.";
+                break;
+        }   
     }
 
     //check conflict void print_help()on args
     if(udp_flag && tcp_flag)
     {
-        cerr << "Unvalid argument combination: [-t|--tcp] and [-u|--udp]";
+        cerr << "ERROR: Unvalid argument combination: [-t|--tcp] and [-u|--udp]";
         exit(ERROR);
     }
-
+    cout << udp_flag << icmp_flag << tcp_flag << arp_flag <<endl;
     return 0;
 }
 
@@ -139,7 +172,7 @@ void print_help(char* progname)
  */
 void print_interfaces()
 {
-    printf("INTERFACES");
+    cout << "print_interfaces called" << endl;
     exit(SUCCES);
 }
 
