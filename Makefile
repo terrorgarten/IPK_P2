@@ -3,7 +3,7 @@ CC = g++
 CFLAGS  = -Wall -lpcap
 
 # The build target 
-TARGET = sniffer
+TARGET = ipk-sniffer
 
 all: $(TARGET)
 
