@@ -3,6 +3,8 @@ ipk-sniffer is a tool for analyzing and capturing packets on the web.
 It allows for advanced filtering via definig transport and network layer protocols
 Currently manages both ipv4 and ipv6 + arp on network layer and udp, tcp, icmp and icmp6 on transport layer.
 
+## Version:
+0.1.1 - Currently considered unstable, WIP
 
 ## Usage:
 see -h for help with options.
